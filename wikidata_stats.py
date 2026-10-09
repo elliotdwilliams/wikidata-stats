@@ -21,7 +21,7 @@ def get_user_input():
     if not username:
         print("Username cannot be empty.")
         sys.exit(1)
-   
+
     # Get date range
     start_dt = None
     end_dt = None
@@ -189,13 +189,9 @@ def process_contributions(contributions):
             else:
                 edited_pages.add(title)
 
-    # To enforce the mutual exclusivity rule, we remove any pages that were
+    # To make sure each page is only counted once, remove any pages that were
     # created in the period from the set of edited pages.
-    # This ensures a page is only ever counted as "Created".
     final_edited_pages = edited_pages - created_pages
-
-    print(f"  Pages created: {len(created_pages)}")
-    print(f"  Pages edited (excluding created): {len(final_edited_pages)}")
 
     return created_pages, final_edited_pages
 
@@ -215,8 +211,8 @@ def write_report(username, start_str, end_str, created_count, edited_count):
     report_content = (
         f"User: {username}\n"
         f"Period: {start_str} to {end_str}\n"
-        f"Edited: {edited_count}\n"
-        f"Created: {created_count}\n"
+        f"Items created: {created_count}\n"
+        f"Item edited (excluding created): {edited_count}\n"
     )
 
     # Print to console
