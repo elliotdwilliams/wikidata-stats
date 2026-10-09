@@ -1,8 +1,9 @@
-import requests
 import datetime
 import calendar
 import sys
-import json
+import csv
+
+import requests
 
 # The endpoint for the Wikidata MediaWiki API
 API_ENDPOINT = "https://www.wikidata.org/w/api.php"
@@ -46,7 +47,8 @@ def get_user_input():
                 start_dt = datetime.datetime(year, month, 1, 0, 0, 0, tzinfo=datetime.timezone.utc)
                 # Get the last day of the month
                 last_day = calendar.monthrange(year, month)[1]
-                end_dt = datetime.datetime(year, month, last_day, 23, 59, 59, tzinfo=datetime.timezone.utc)
+                end_dt = datetime.datetime(
+                    year, month, last_day, 23, 59, 59, tzinfo=datetime.timezone.utc)
                 break
             except ValueError:
                 print("Invalid format. Please use YYY-MM.")
@@ -55,16 +57,18 @@ def get_user_input():
         while True:
             start_str = input("Enter the start date (YYYY-MM-DD): ")
             try:
-                start_dt = datetime.datetime.fromisoformat(start_str + "T00:00:00").replace(tzinfo=datetime.timezone.utc)
+                start_dt = datetime.datetime.fromisoformat(
+                    start_str + "T00:00:00").replace(tzinfo=datetime.timezone.utc)
                 break
             except ValueError:
                 print("Invalid format. Please use YYYY-MM-DD.")
-        
+
         while True:
             end_str = input("Enter the end date (YYYY-MM-DD): ")
             try:
                 # End of the day is used to include all contributions on the end date
-                end_dt = datetime.datetime.fromisoformat(end_str + "T23:59:59").replace(tzinfo=datetime.timezone.utc)
+                end_dt = datetime.datetime.fromisoformat(
+                    end_str + "T23:59:59").replace(tzinfo=datetime.timezone.utc)
                 if end_dt < start_dt:
                     print("End date cannot be before the start date.")
                     continue
@@ -89,16 +93,16 @@ def fetch_contributions(username, start_dt, end_dt):
         list: A list of contribution dictionaries from the API, or None if an error occurs.
     """
     print(f"\nFetching contributions for '{username}'...")
-    
+
     # Use a session for connection pooling and to set a User-Agent
     session = requests.Session()
     session.headers.update({
         'User-Agent': f'WikidataStatsScript/1.0 (mailto:user@example.com; User:{username})'
     })
-    
+
     all_contributions = []
-    
-    # API parameters - FIXED: Ensure flags are included in the response
+
+    # API parameters
     params = {
         "action": "query",
         "format": "json",
@@ -121,10 +125,10 @@ def fetch_contributions(username, start_dt, end_dt):
             if "error" in data:
                 print(f"API Error: {data['error']['info']}")
                 return None
-            
+
             contribs = data.get("query", {}).get("usercontribs", [])
             all_contributions.extend(contribs)
-            
+
             # Check for the 'continue' element to handle pagination
             if "continue" in data:
                 params["uccontinue"] = data["continue"]["uccontinue"]
@@ -132,11 +136,11 @@ def fetch_contributions(username, start_dt, end_dt):
             else:
                 # No more pages
                 break
-    
+
     except requests.exceptions.RequestException as e:
         print(f"An error occurred during the API request: {e}")
         return None
-        
+
     print(f"Total contributions found in period: {len(all_contributions)}")
     return all_contributions
 
@@ -145,29 +149,29 @@ def is_page_creation(contrib):
     """
     Determines if a contribution represents a page creation.
     This function handles various ways the 'new' flag might be represented.
-    
+
     Args:
         contrib (dict): A single contribution from the API
-        
+
     Returns:
         bool: True if this is a page creation, False otherwise
     """
     # Method 1: Check if 'new' key exists and is True (most reliable)
     if contrib.get('new', False) is True:
         return True
-    
+
     # Method 2: Check if 'new' is in the flags list/array
     flags = contrib.get('flags', [])
     if isinstance(flags, list) and 'new' in flags:
         return True
-    
+
     # Method 3: Check for absence of parentid - new pages don't have parent revisions
     # This is more reliable than the size method
     if contrib.get('parentid') is None or contrib.get('parentid') == 0:
         # Double-check this isn't just missing data by ensuring we have other expected fields
         if contrib.get('revid') and contrib.get('size'):
             return True
-    
+
     # Method 4: Check by revision ID pattern - sometimes new pages can be identified
     # by having a revid but no meaningful parent revision context
     # Only use this as a last resort and with additional checks
@@ -177,7 +181,7 @@ def is_page_creation(contrib):
         # This might indicate a new page, but it's not reliable enough on its own
         # Only use if we have other supporting evidence
         pass
-        
+
     return False
 
 
@@ -189,7 +193,7 @@ def process_contributions(contributions):
         contributions (list): A list of contribution data from the API.
 
     Returns:
-        tuple: A tuple containing (created_count, edited_count).
+        tuple: A tuple containing (created_pages, edited_pages).
     """
     if not contributions:
         return 0, 0
@@ -204,27 +208,27 @@ def process_contributions(contributions):
         # We are only interested in contributions to the main namespace (items)
         if contrib.get("ns") == 0:
             title = contrib["title"]
-            
-            # Use our improved page creation detection
+
+            # Identify if item was newly created
             is_new_page = is_page_creation(contrib)
-            
+
             if is_new_page:
                 created_pages.add(title)
             else:
                 edited_pages.add(title)
-    
+
     # To enforce the mutual exclusivity rule, we remove any pages that were
     # created in the period from the set of edited pages.
     # This ensures a page is only ever counted as "Created".
     final_edited_pages = edited_pages - created_pages
-    
+
     print(f"  Pages created: {len(created_pages)}")
     print(f"  Pages edited (excluding created): {len(final_edited_pages)}")
-    
-    return len(created_pages), len(final_edited_pages)
+
+    return created_pages, final_edited_pages
 
 
-def write_report(username, start_dt, end_dt, created_count, edited_count):
+def write_report(username, start_str, end_str, created_count, edited_count):
     """
     Writes the final statistics to the console and a text file.
 
@@ -235,10 +239,7 @@ def write_report(username, start_dt, end_dt, created_count, edited_count):
         created_count (int): The count of created pages.
         edited_count (int): The count of edited pages.
     """
-    start_str = start_dt.strftime("%Y-%m-%d")
-    end_str = end_dt.strftime("%Y-%m-%d")
-
-    # --- Prepare the report content ---
+    # Prepare the report content
     report_content = (
         f"User: {username}\n"
         f"Period: {start_str} to {end_str}\n"
@@ -246,11 +247,11 @@ def write_report(username, start_dt, end_dt, created_count, edited_count):
         f"Created: {created_count}\n"
     )
 
-    # --- Print to console ---
+    # Print to console
     print("\n--- Wikidata Contribution Report ---")
     print(report_content)
 
-    # --- Write to file ---
+    # Write to file
     filename = f"wikidata_stats-{username}-{start_str}_to_{end_str}.txt"
     try:
         with open(filename, "w", encoding="utf-8") as f:
@@ -260,25 +261,75 @@ def write_report(username, start_dt, end_dt, created_count, edited_count):
         print(f"Error: Could not write report to file: {e}")
 
 
+def write_list(username, start_str, end_str, created_pages, edited_pages):
+    """
+    Writes the final list of pages created/edited to a csv file.
+
+    Args:
+        username (str): The user's name.
+        start_dt (datetime): The start date of the report period.
+        end_dt (datetime): The end date of the report period.
+        created_pages (list): Item titles of all created pages.
+        edited_count (list): Item titles of all edited pages.
+    """
+    # Create list to store data for output
+    all_pages = []
+
+    # Loop through created_pages and edited_pages
+    # For each item, add to all_pages with the edit type
+    for item in created_pages:
+        all_pages.append(['created', item])
+    for item in edited_pages:
+        all_pages.append(['edited', item])
+
+    # Write to file
+    filename = f"wikidata_stats-{username}-{start_str}_to_{end_str}-list.txt"
+    try:
+        with open(filename, mode='w', newline='', encoding='utf-8') as csvfile:
+            fieldnames = [
+                'Edit Type', 'Item QID']
+            writer = csv.writer(csvfile)
+            writer.writerow(fieldnames)
+            for row in all_pages:
+                writer.writerow(row)
+        print(f"Report successfully saved to '{filename}'")
+    except IOError as e:
+        print(f"Error: Could not write report to file: {e}")
+
+
 def main():
     """Main function to run the script."""
     print("--- Wikidata Contribution Statistics Reporter ---")
-    
+
     # 1. Get user input
     username, start_dt, end_dt = get_user_input()
-    
+
+    # FOR TESTING PURPOSES
+    # username = "Elliotdwilliams"
+    # start_dt = datetime.datetime.fromisoformat("2026-09-15T00:00:00").replace(tzinfo=datetime.timezone.utc)
+    # end_dt = datetime.datetime.fromisoformat("2026-09-30T23:59:59").replace(tzinfo=datetime.timezone.utc)
+    # print(username + str(start_dt))
+
     # 2. Fetch data from API
     contributions = fetch_contributions(username, start_dt, end_dt)
-    
+
     if contributions is None:
         print("\nCould not retrieve contributions. Exiting.")
         return # Exit if fetching failed
-        
+
     # 3. Process the data
-    created_count, edited_count = process_contributions(contributions)
-    
-    # 4. Write the report
-    write_report(username, start_dt, end_dt, created_count, edited_count)
+    created_pages, edited_pages = process_contributions(contributions)
+    created_count = len(created_pages)
+    edited_count = len(edited_pages)
+
+    # 4. Write the report and list of items
+
+    # Change dates to strings to pass for filenames
+    start_str = start_dt.strftime("%Y-%m-%d")
+    end_str = end_dt.strftime("%Y-%m-%d")
+
+    write_report(username, start_str, end_str, created_count, edited_count)
+    write_list(username, start_str, end_str, created_pages, edited_pages)
 
 
 if __name__ == "__main__":
