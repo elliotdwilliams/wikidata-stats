@@ -16,65 +16,37 @@ def get_user_input():
     Returns:
         tuple: A tuple containing (username, start_datetime, end_datetime).
     """
-    # --- Get Username ---
+    # Get username
     username = input("Enter your Wikidata username: ")
     if not username:
         print("Username cannot be empty.")
         sys.exit(1)
-
-    # --- Get Date Range Type ---
-    while True:
-        print("\nSelect a date range option:")
-        print("  1. A specific month (e.g., 2023-10)")
-        print("  2. A custom date range (e.g., from 2023-10-15 to 2023-11-15)")
-        choice = input("Enter your choice (1 or 2): ")
-        if choice in ['1', '2']:
-            break
-        else:
-            print("Invalid choice. Please enter 1 or 2.")
-
-    # --- Process Date Input ---
+   
+    # Get date range
     start_dt = None
     end_dt = None
 
-    if choice == '1':
-        # --- Handle Specific Month ---
-        while True:
-            month_str = input("Enter the month in YYYY-MM format: ")
-            try:
-                year, month = map(int, month_str.split('-'))
-                # Get the first day of the month
-                start_dt = datetime.datetime(year, month, 1, 0, 0, 0, tzinfo=datetime.timezone.utc)
-                # Get the last day of the month
-                last_day = calendar.monthrange(year, month)[1]
-                end_dt = datetime.datetime(
-                    year, month, last_day, 23, 59, 59, tzinfo=datetime.timezone.utc)
-                break
-            except ValueError:
-                print("Invalid format. Please use YYY-MM.")
-    else:
-        # --- Handle Custom Date Range ---
-        while True:
-            start_str = input("Enter the start date (YYYY-MM-DD): ")
-            try:
-                start_dt = datetime.datetime.fromisoformat(
-                    start_str + "T00:00:00").replace(tzinfo=datetime.timezone.utc)
-                break
-            except ValueError:
-                print("Invalid format. Please use YYYY-MM-DD.")
+    while True:
+        start_str = input("Enter the start date (YYYY-MM-DD): ")
+        try:
+            start_dt = datetime.datetime.fromisoformat(
+                start_str + "T00:00:00").replace(tzinfo=datetime.timezone.utc)
+            break
+        except ValueError:
+            print("Invalid format. Please use YYYY-MM-DD.")
 
-        while True:
-            end_str = input("Enter the end date (YYYY-MM-DD): ")
-            try:
-                # End of the day is used to include all contributions on the end date
-                end_dt = datetime.datetime.fromisoformat(
-                    end_str + "T23:59:59").replace(tzinfo=datetime.timezone.utc)
-                if end_dt < start_dt:
-                    print("End date cannot be before the start date.")
-                    continue
-                break
-            except ValueError:
-                print("Invalid format. Please use YYYY-MM-DD.")
+    while True:
+        end_str = input("Enter the end date (YYYY-MM-DD): ")
+        try:
+            # End of the day is used to include all contributions on the end date
+            end_dt = datetime.datetime.fromisoformat(
+                end_str + "T23:59:59").replace(tzinfo=datetime.timezone.utc)
+            if end_dt < start_dt:
+                print("End date cannot be before the start date.")
+                continue
+            break
+        except ValueError:
+            print("Invalid format. Please use YYYY-MM-DD.")
 
     return username, start_dt, end_dt
 
@@ -324,7 +296,7 @@ def main():
 
     # 4. Write the report and list of items
 
-    # Change dates to strings to pass for filenames
+    # Change dates to strings for filenames
     start_str = start_dt.strftime("%Y-%m-%d")
     end_str = end_dt.strftime("%Y-%m-%d")
 
