@@ -2,7 +2,7 @@
 
 A simple command line tool for getting statistics about items edited and created in [Wikidata](https://www.wikidata.org/wiki/Wikidata:Main_Page).  The script uses the [MediaWiki API](https://www.mediawiki.org/wiki/API:Query) to get Wikidata contributions by a given user for a specified date range.
 
-This tool was created specifically to help with gathering statistics for the [PCC EMCO Wikidata Community of Practice](https://www.wikidata.org/wiki/Wikidata:WikiProject_PCC_EMCO_Wikidata_CoP/Statistics).
+This version of the tool was created specifically to help with gathering statistics for the [PCC EMCO Wikidata Community of Practice](https://www.wikidata.org/wiki/Wikidata:WikiProject_PCC_EMCO_Wikidata_CoP/Statistics).
 
 ## Requirements
 
