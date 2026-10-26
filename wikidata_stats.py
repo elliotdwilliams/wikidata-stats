@@ -1,5 +1,4 @@
 import datetime
-import calendar
 import sys
 import csv
 
@@ -81,7 +80,7 @@ def fetch_contributions(username, start_dt, end_dt):
         "list": "usercontribs",
         "ucuser": username,
         "uclimit": "500",  # Max limit per request
-        "ucprop": "title|timestamp|flags|comment|parsedcomment|ids|size|sizediff|tags",
+        "ucprop": "title|timestamp|flags|ids|tags", # Trying with fewer properties
         "ucdir": "newer", # Process chronologically from start to end
         "ucstart": start_dt.isoformat(),
         "ucend": end_dt.isoformat(),
@@ -147,6 +146,7 @@ def is_page_creation(contrib):
     # Method 4: Check by revision ID pattern - sometimes new pages can be identified
     # by having a revid but no meaningful parent revision context
     # Only use this as a last resort and with additional checks
+    # NOT CURRENTLY USED
     revid = contrib.get('revid')
     parentid = contrib.get('parentid')
     if revid and parentid and (revid - parentid == 1):
@@ -271,12 +271,6 @@ def main():
 
     # 1. Get user input
     username, start_dt, end_dt = get_user_input()
-
-    # FOR TESTING PURPOSES
-    # username = "Elliotdwilliams"
-    # start_dt = datetime.datetime.fromisoformat("2026-09-15T00:00:00").replace(tzinfo=datetime.timezone.utc)
-    # end_dt = datetime.datetime.fromisoformat("2026-09-30T23:59:59").replace(tzinfo=datetime.timezone.utc)
-    # print(username + str(start_dt))
 
     # 2. Fetch data from API
     contributions = fetch_contributions(username, start_dt, end_dt)
